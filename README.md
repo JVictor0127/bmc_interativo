@@ -1,1 +1,0 @@
-# bmc_interativo
