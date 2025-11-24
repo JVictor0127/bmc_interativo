@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas de Modelo de Negócio Interativo (Local)</title>
+    <!-- Carrega o Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Configuração da fonte Inter -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .canvas-block {
+            border: 2px solid #e5e7eb;
+            transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 18rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .canvas-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .post-it {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            word-wrap: break-word;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.1s ease-in-out;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .post-it-content {
+            white-space: pre-wrap; /* Mantém quebras de linha */
+        }
+        .delete-btn {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            border: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            line-height: 1;
+            border-radius: 0 0.375rem 0 0.375rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .post-it:hover .delete-btn {
+            opacity: 1;
+        }
+        .post-it-container {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        /* Custom Colors */
+        .color-teal { background-color: #20b2aa; }
+        .color-red { background-color: #ff6347; }
+        .color-green { background-color: #90ee90; }
+        .color-orange { background-color: #ffb447; }
+        .text-teal { color: #20b2aa; }
+        .text-red { color: #ff6347; }
+        .text-green { color: #90ee90; }
+
+        .botao-link {
+            background-color: #ff7708; /* Cor de fundo */
+            color: white; /* Cor do texto */
+            padding: 15px 32px; /* Preenchimento */
+            text-align: center;
+            text-decoration: none; /* Remove o sublinhado */
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px; /* Bordas arredondadas */
+            font-weight: bold;
+        }
+        /* Header Logo Styles */
+        .logo-placeholder {
+            width: 60px;
+            height: 60px;
+            background-color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: #9ca3af;
+            cursor: pointer;
+            overflow: hidden;
+            border: 1px solid #d1d5db;
+        }
+        .logo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* CSS de Impressão */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                /* Força o navegador a imprimir cores de fundo e imagens */
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #app {
+                box-shadow: none !important;
+            }
+            /* Layout do Header para Impressão */
+            #print-header {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+            .canvas-block {
+                min-height: 10rem !important;
+                box-shadow: none !important;
+                border: 1px solid #9ca3af;
+            }
+            .post-it {
+                box-shadow: none !important;
+                border: 1px solid #9ca3af !important;
+            }
+        }
+
+    </style>
+    <!-- Ícones Lucide -->
+    <script type="module">
+        import { createIcons, PlusCircle, User, Zap, Link, Package, Heart, Truck, ShoppingCart, DollarSign } from 'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
+        document.addEventListener('DOMContentLoaded', () => {
+            createIcons({
+                icons: { PlusCircle, User, Zap, Link, Package, Heart, Truck, ShoppingCart, DollarSign }
+            });
+        });
+    </script>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app">
+        <!-- Header Interativo com Logo e Responsáveis -->
+        <header class="mb-8 p-4 bg-white rounded-xl shadow-lg flex flex-col md:flex-row items-start md:items-center gap-4 border-b-4 border-orange-500">
+            
+            <!-- Versão INTERATIVA do Header -->
+            <div id="interactive-header-content" class="flex-grow flex items-start md:items-center gap-4 w-full">
+                <!-- Campo Logo (Interativo) -->
+                <div id="logo-container" onclick="editLogo()" class="logo-placeholder flex-shrink-0 hover:ring-2 ring-orange-400 transition no-print" title="Clique para adicionar/alterar a Logo">
+                    <i class="fa-solid fa-image text-2xl"></i>
+                </div>
+                
+                <!-- Título e Responsáveis Interativos -->
+                <div class="flex-grow text-left">
+                    <h1 id="app-title" onclick="editTitle()" class="text-3xl font-extrabold text-gray-800 cursor-pointer hover:text-orange-600 transition no-print">
+                        Canvas de Modelo de Negócio Interativo
+                    </h1>
+                    
+                    <!-- Campo Responsáveis (Interativo) -->
+                    <div onclick="editResponsibles()" class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 hover:bg-orange-50 cursor-pointer transition group no-print">
+                        <i class="fa-solid fa-user-group text-gray-400 group-hover:text-orange-500"></i>
+                        <span id="display-responsibles" class="text-sm font-semibold text-gray-700 group-hover:text-gray-800">
+                            Responsáveis: [Clique para definir]
+                        </span>
+                    </div>
+                    <p class="text-sm mt-1 text-gray-500 no-print">
+                        Seus post-its e dados do cabeçalho são salvos localmente no seu navegador.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Versão para IMPRESSÃO do Header (Oculta na tela) -->
+            <div id="print-header" class="hidden print:flex w-full">
+                <!-- Logo para Impressão -->
+                <div id="logo-print" class="w-16 h-16 mr-4 flex-shrink-0"></div>
+                <!-- Detalhes para Impressão -->
+                <div class="flex-grow">
+                    <h1 id="app-title-print" class="text-3xl font-extrabold text-gray-800"></h1>
+                    <p id="responsibles-print" class="text-sm text-gray-600 mt-1"></p>
+                </div>
+            </div>
+
+            <div class="text-right flex-shrink-0 flex gap-3 no-print mt-4 md:mt-0">
+                <a href="https://www.google.com" class="botao-link shadow-md hover:bg-orange-600 transition">
+                    Manual
+                </a>
+                <!-- Botão de Impressão Adicionado -->
+                <button onclick="window.print()" class="botao-link shadow-md hover:bg-orange-600 transition bg-teal-600 hover:bg-teal-700">
+                    <i class="fa-solid fa-print mr-1"></i> Imprimir
+                </button>
+            </div>
+        </header>
+
+        <!-- Grade Principal do Canvas -->
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+            <!-- Coluna 1: Parceiros -->
+            <div id="parceiros_principais" class="canvas-block color-teal rounded-xl shadow-lg lg:col-span-1">
+                <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                    <i data-lucide="link" class="w-5 h-5 mr-2"></i> PARCEIROS PRINCIPAIS
+                </h2>
+                <div class="post-it-container" data-block-id="parceiros_principais"></div>
+                <button onclick="openModal('parceiros_principais')" class="bg-white text-teal hover:bg-teal-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                </button>
+            </div>
+
+            <!-- Coluna 2: Atividades/Recursos -->
+            <div class="grid grid-rows-2 gap-4 lg:col-span-1">
+                <!-- Atividades Principais -->
+                <div id="atividades_principais" class="canvas-block color-teal rounded-xl shadow-lg">
+                    <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> ATIVIDADES PRINCIPAIS
+                    </h2>
+                    <div class="post-it-container" data-block-id="atividades_principais"></div>
+                    <button onclick="openModal('atividades_principais')" class="bg-white text-teal hover:bg-teal-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                        <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                    </button>
+                </div>
+                <!-- Recursos Principais -->
+                <div id="recursos_principais" class="canvas-block color-teal rounded-xl shadow-lg">
+                    <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> RECURSOS PRINCIPAIS
+                    </h2>
+                    <div class="post-it-container" data-block-id="recursos_principais"></div>
+                    <button onclick="openModal('recursos_principais')" class="bg-white text-teal hover:bg-teal-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                        <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                    </button>
+                </div>
+            </div>
+
+            <!-- Coluna 3: Proposta de Valor (Centro) -->
+            <div id="proposta_valor" class="canvas-block color-red rounded-xl shadow-lg lg:col-span-1">
+                <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center justify-center text-center">
+                    <i data-lucide="package" class="w-6 h-6 mr-2"></i> PROPOSTA DE VALOR
+                </h2>
+                <div class="post-it-container" data-block-id="proposta_valor"></div>
+                <button onclick="openModal('proposta_valor')" class="bg-white text-red hover:bg-red-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                </button>
+            </div>
+
+            <!-- Coluna 4: Relacionamento/Canais -->
+            <div class="grid grid-rows-2 gap-4 lg:col-span-1">
+                <!-- Relacionamento com Clientes -->
+                <div id="relacionamento_clientes" class="canvas-block color-green rounded-xl shadow-lg">
+                    <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                        <i data-lucide="heart" class="w-5 h-5 mr-2"></i> RELACIONAMENTO COM CLIENTES
+                    </h2>
+                    <div class="post-it-container" data-block-id="relacionamento_clientes"></div>
+                    <button onclick="openModal('relacionamento_clientes')" class="bg-white text-green hover:bg-green-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                        <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                    </button>
+                </div>
+                <!-- Canais -->
+                <div id="canais" class="canvas-block color-green rounded-xl shadow-lg">
+                    <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                        <i data-lucide="truck" class="w-5 h-5 mr-2"></i> CANAIS
+                    </h2>
+                    <div class="post-it-container" data-block-id="canais"></div>
+                    <button onclick="openModal('canais')" class="bg-white text-green hover:bg-green-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                        <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                    </button>
+                </div>
+            </div>
+
+            <!-- Coluna 5: Segmento de Clientes -->
+            <div id="segmento_clientes" class="canvas-block color-green rounded-xl shadow-lg lg:col-span-1">
+                <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                    <i data-lucide="user" class="w-5 h-5 mr-2"></i> SEGMENTO DE CLIENTES
+                </h2>
+                <div class="post-it-container" data-block-id="segmento_clientes"></div>
+                <button onclick="openModal('segmento_clientes')" class="bg-white text-green hover:bg-green-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Linha Inferior: Custos e Receitas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <!-- Estrutura de Custo -->
+            <div id="estrutura_custo" class="canvas-block color-orange rounded-xl shadow-lg md:col-span-1">
+                <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                    <i data-lucide="shopping-cart" class="w-5 h-5 mr-2"></i> ESTRUTURA DE CUSTO
+                </h2>
+                <div class="post-it-container" data-block-id="estrutura_custo"></div>
+                <button onclick="openModal('estrutura_custo')" class="bg-white text-orange hover:bg-orange-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                </button>
+            </div>
+
+            <!-- Fontes de Receita -->
+            <div id="fontes_receita" class="canvas-block color-orange rounded-xl shadow-lg md:col-span-1">
+                <h2 class="text-xl font-bold p-3 text-white border-b border-white/20 flex items-center">
+                    <i data-lucide="dollar-sign" class="w-5 h-5 mr-2"></i> FONTES DE RECEITA
+                </h2>
+                <div class="post-it-container" data-block-id="fontes_receita"></div>
+                <button onclick="openModal('fontes_receita')" class="bg-white text-orange hover:bg-orange-100 p-2 m-2 rounded-lg font-semibold transition flex items-center justify-center no-print">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-1"></i> Adicionar Post-it
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Adição/Edição de Post-it -->
+    <div id="postit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4 text-gray-800">Novo Post-it em [Block Name]</h3>
+            <p class="text-sm text-gray-500 mb-2">Conteúdo do Post-it:</p>
+            <textarea id="postit-content" class="w-full p-3 border border-gray-300 rounded-lg mb-4 resize-none focus:ring-4 focus:ring-teal-200" rows="5" placeholder="Digite sua ideia aqui..."></textarea>
+            
+            <p class="text-sm text-gray-500 mb-2">Cor do Post-it:</p>
+            <div id="color-picker" class="flex space-x-2 mb-6">
+                <!-- Cores do Picker ajustadas para o tema -->
+                <button class="w-8 h-8 rounded-full bg-yellow-300 border-2 border-transparent hover:border-gray-500 transition" data-color="#fef08a" onclick="selectColor(this, '#fef08a')"></button>
+                <button class="w-8 h-8 rounded-full bg-orange-300 border-2 border-transparent hover:border-gray-500 transition" data-color="#fdba74" onclick="selectColor(this, '#fdba74')"></button>
+                <button class="w-8 h-8 rounded-full bg-red-300 border-2 border-transparent hover:border-gray-500 transition" data-color="#fca5a5" onclick="selectColor(this, '#fca5a5')"></button>
+                <button class="w-8 h-8 rounded-full bg-teal-300 border-2 border-transparent hover:border-gray-500 transition" data-color="#5eead4" onclick="selectColor(this, '#5eead4')"></button>
+                <button class="w-8 h-8 rounded-full bg-white border-2 border-gray-500 hover:border-black transition" data-color="#ffffff" onclick="selectColor(this, '#ffffff')"></button>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition">
+                    Cancelar
+                </button>
+                <button id="save-postit-btn" onclick="savePostIt()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition font-semibold">
+                    Salvar Post-it
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Script JavaScript Puro com Local Storage -->
+    <script>
+        const STORAGE_KEY_NOTES = 'canvas_model_notes';
+        const STORAGE_KEY_HEADER = 'canvas_model_header';
+        
+        let currentBlockId = null;
+        let currentPostItId = null;
+        let selectedColor = '#fef08a'; // Cor padrão: Amarelo
+
+        // Mapping for display names
+        const blockNames = {
+            parceiros_principais: "Parceiros Principais",
+            atividades_principais: "Atividades Principais",
+            recursos_principais: "Recursos Principais",
+            proposta_valor: "Proposta de Valor",
+            relacionamento_clientes: "Relacionamento com Clientes",
+            canais: "Canais",
+            segmento_clientes: "Segmento de Clientes",
+            estrutura_custo: "Estrutura de Custo",
+            fontes_receita: "Fontes de Receita",
+        };
+
+        // --- Local Storage Functions ---
+
+        function loadNotes() {
+            try {
+                const notes = localStorage.getItem(STORAGE_KEY_NOTES);
+                return notes ? JSON.parse(notes) : [];
+            } catch (e) {
+                console.error("Erro ao carregar notas do Local Storage:", e);
+                return [];
+            }
+        }
+
+        function saveNotes(notes) {
+            try {
+                localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify(notes));
+            } catch (e) {
+                console.error("Erro ao salvar notas no Local Storage:", e);
+            }
+        }
+        
+        function loadHeaderData() {
+            try {
+                const header = localStorage.getItem(STORAGE_KEY_HEADER);
+                return header ? JSON.parse(header) : {
+                    title: "Canvas de Modelo de Negócio Interativo",
+                    responsibles: "[Clique para definir]",
+                    logoUrl: ""
+                };
+            } catch (e) {
+                console.error("Erro ao carregar cabeçalho do Local Storage:", e);
+                // Retorna dados iniciais seguros em caso de erro de parsing
+                return {
+                    title: "Canvas de Modelo de Negócio Interativo",
+                    responsibles: "[Clique para definir]",
+                    logoUrl: ""
+                };
+            }
+        }
+
+        function saveHeaderData(data) {
+            try {
+                localStorage.setItem(STORAGE_KEY_HEADER, JSON.stringify(data));
+            } catch (e) {
+                console.error("Erro ao salvar cabeçalho no Local Storage:", e);
+            }
+        }
+
+        // --- Header Functions ---
+
+        window.editTitle = function() {
+            const currentTitle = document.getElementById('app-title').textContent;
+            const newTitle = prompt("Editar Título do Projeto:", currentTitle);
+            if (newTitle !== null && newTitle.trim() !== "") {
+                const headerData = loadHeaderData();
+                headerData.title = newTitle.trim();
+                saveHeaderData(headerData);
+                renderHeader(headerData);
+            }
+        };
+
+        window.editResponsibles = function() {
+            const headerData = loadHeaderData();
+            const currentResponsibles = headerData.responsibles || "";
+            const newResponsibles = prompt("Editar Nomes dos Responsáveis:", currentResponsibles);
+            if (newResponsibles !== null) {
+                headerData.responsibles = newResponsibles.trim() || "[Clique para definir]";
+                saveHeaderData(headerData);
+                renderHeader(headerData);
+            }
+        };
+
+        window.editLogo = function() {
+            const newUrl = prompt("Insira a URL da imagem da Logo:");
+            const headerData = loadHeaderData();
+            if (newUrl !== null) {
+                headerData.logoUrl = newUrl.trim();
+                saveHeaderData(headerData);
+                renderHeader(headerData); // Re-renderiza para mostrar a imagem
+            }
+        };
+        
+        function renderHeader(data) {
+            // Versão Interativa
+            document.getElementById('app-title').textContent = data.title;
+            document.getElementById('display-responsibles').textContent = "Responsáveis: " + data.responsibles;
+            
+            // Versão para Impressão
+            document.getElementById('app-title-print').textContent = data.title;
+            document.getElementById('responsibles-print').textContent = "Responsáveis: " + data.responsibles;
+            
+            const logoContainer = document.getElementById('logo-container');
+            const logoPrintContainer = document.getElementById('logo-print');
+            
+            logoContainer.innerHTML = '';
+            logoPrintContainer.innerHTML = '';
+
+            if (data.logoUrl) {
+                const imgUrl = data.logoUrl;
+                // Logo Interativa
+                const imgInteractive = document.createElement('img');
+                imgInteractive.src = imgUrl;
+                imgInteractive.alt = "Logo da Empresa";
+                imgInteractive.onerror = function() {
+                    logoContainer.innerHTML = `<i class="fa-solid fa-image text-2xl"></i>`;
+                };
+                logoContainer.appendChild(imgInteractive);
+
+                // Logo para Impressão
+                const imgPrint = document.createElement('img');
+                imgPrint.src = imgUrl;
+                imgPrint.alt = "Logo da Empresa";
+                imgPrint.style.width = '100%';
+                imgPrint.style.height = '100%';
+                imgPrint.style.objectFit = 'contain';
+                imgPrint.onerror = function() {
+                    logoPrintContainer.textContent = 'Logo';
+                };
+                logoPrintContainer.appendChild(imgPrint);
+            } else {
+                logoContainer.innerHTML = `<i class="fa-solid fa-image text-2xl"></i>`;
+                logoPrintContainer.textContent = '';
+            }
+        }
+
+
+        // --- CRUD Operations ---
+
+        window.savePostIt = () => {
+            const content = document.getElementById('postit-content').value.trim();
+            const color = selectedColor;
+
+            if (content === "") {
+                console.error("Erro: O conteúdo do post-it não pode ser vazio.");
+                document.getElementById('postit-content').focus();
+                return;
+            }
+
+            let notes = loadNotes();
+            
+            if (currentPostItId) {
+                // Update existing note
+                const index = notes.findIndex(note => note.id === currentPostItId);
+                if (index !== -1) {
+                    notes[index] = { ...notes[index], content, color };
+                }
+            } else {
+                // Add new note
+                const noteId = Date.now().toString() + Math.random().toString(16).substring(2);
+                const newNote = {
+                    id: noteId,
+                    blockId: currentBlockId,
+                    content: content,
+                    color: color,
+                };
+                notes.push(newNote);
+            }
+
+            saveNotes(notes);
+            renderNotes();
+            closeModal();
+            console.log("Post-it salvo com sucesso!");
+        };
+
+        window.deletePostIt = (noteId) => {
+            let notes = loadNotes();
+            notes = notes.filter(note => note.id !== noteId);
+            saveNotes(notes);
+            renderNotes();
+            console.log("Post-it removido com sucesso!");
+        };
+
+
+        // --- UI Rendering and Modal Logic ---
+
+        function renderNotes() {
+            const notes = loadNotes();
+            
+            document.querySelectorAll('.post-it-container').forEach(container => container.innerHTML = '');
+
+            notes.forEach(note => {
+                const container = document.querySelector(`.post-it-container[data-block-id="${note.blockId}"]`);
+                if (container) {
+                    const postIt = document.createElement('div');
+                    // Remove a classe 'no-print' do post-it para que ele seja impresso
+                    postIt.className = `post-it p-3 text-gray-800`;
+                    postIt.style.backgroundColor = note.color || '#fef08a';
+                    postIt.setAttribute('data-note-id', note.id);
+
+                    const contentSpan = document.createElement('span');
+                    contentSpan.className = 'post-it-content text-sm';
+                    contentSpan.textContent = note.content;
+                    postIt.appendChild(contentSpan);
+                    
+                    // Ações de edição/exclusão (apenas na interface web, não na impressão)
+                    postIt.onclick = () => openModal(note.blockId, note.id, note.content, note.color);
+
+                    const deleteBtn = document.createElement('button');
+                    // Adiciona a classe 'no-print' ao botão de exclusão
+                    deleteBtn.className = 'delete-btn no-print';
+                    deleteBtn.innerHTML = '×';
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        window.deletePostIt(note.id);
+                    };
+                    postIt.appendChild(deleteBtn);
+
+                    container.appendChild(postIt);
+                }
+            });
+        }
+
+        window.openModal = (blockId, noteId = null, content = '', color = '#fef08a') => {
+            currentBlockId = blockId;
+            currentPostItId = noteId;
+
+            const blockName = blockNames[blockId] || blockId;
+            document.getElementById('modal-title').textContent = noteId ? `Editar Post-it em ${blockName}` : `Novo Post-it em ${blockName}`;
+            
+            document.getElementById('postit-content').value = content;
+            selectColor(null, color); 
+
+            document.getElementById('postit-modal').classList.remove('hidden');
+            document.getElementById('postit-modal').classList.add('flex');
+            document.getElementById('postit-content').focus();
+        };
+
+        window.closeModal = () => {
+            document.getElementById('postit-modal').classList.add('hidden');
+            document.getElementById('postit-modal').classList.remove('flex');
+            currentBlockId = null;
+            currentPostItId = null;
+            selectedColor = '#fef08a';
+            // Deselect all colors
+            document.querySelectorAll('#color-picker button').forEach(btn => btn.classList.remove('border-4', 'border-black'));
+        };
+        
+        window.selectColor = (button, colorHex) => {
+            selectedColor = colorHex;
+            document.querySelectorAll('#color-picker button').forEach(btn => btn.classList.remove('border-4', 'border-black'));
+
+            const buttons = document.querySelectorAll('#color-picker button');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-color') === colorHex) {
+                    btn.classList.add('border-4');
+                    btn.classList.add('border-black');
+                }
+            });
+        };
+
+        // Initialize the app when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            renderHeader(loadHeaderData());
+            renderNotes();
+        });
+
+    </script>
+</body>
+</html>
